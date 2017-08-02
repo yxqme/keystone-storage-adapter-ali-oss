@@ -7,7 +7,7 @@ Configure the storage adapter:
 ```js
 var storage = new keystone.Storage({
   adapter: require('keystone-storage-adapter-ali-oss'),
-  s3: {
+  oss: {
     accessKeyId: 'key', // required; defaults to process.env.OSS_KEY
     accessKeySecret: 'secret', // required; defaults to process.env.OSS_SECRET
     bucket: 'mybucket', // required; defaults to process.env.OSS_BUCKET
