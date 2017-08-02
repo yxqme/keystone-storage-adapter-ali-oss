@@ -115,7 +115,7 @@ AliOssAdapter.prototype.uploadFile = function (file, callback) {
 
 		debug('Uploading file %s', filename);
 		co(function * () {
-			var { res } = yield self.client.put(localpath, destpath, { headers });
+			var { res } = yield self.client.put(destpath, localpath, { headers });
 			if (res.statusCode !== 200) {
 				return callback(new Error('Aliyun returned status code: ' + res.statusCode));
 			}
