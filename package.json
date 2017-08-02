@@ -31,11 +31,11 @@
     "url": "git+https://github.com/yxqme/keystone-storage-adapter-ali-oss.git"
   },
   "keywords": [
-    "aws",
+    "ali-oss",
     "keystone",
     "keystone-storage",
     "keystonejs",
-    "s3",
+    "aliyun",
     "storage"
   ]
 }
