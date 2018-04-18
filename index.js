@@ -5,26 +5,24 @@ TODO
 */
 
 // Mirroring keystone 0.4's support of node 0.12.
-var co = require('co');
-var assign = require('object-assign');
-var debug = require('debug')('keystone-ali-oss');
-var ensureCallback = require('keystone-storage-namefunctions/ensureCallback');
-var oss = require('ali-oss');
-var nameFunctions = require('keystone-storage-namefunctions');
-var pathlib = require('path');
+var assign = require("object-assign");
+var debug = require("debug")("keystone-oss");
+var ensureCallback = require("keystone-storage-namefunctions/ensureCallback");
+var knox = require("knox");
+var nameFunctions = require("keystone-storage-namefunctions");
+var pathlib = require("path");
 
 var DEFAULT_OPTIONS = {
-	accessKeyId: process.env.OSS_KEY,
-	accessKeySecret: process.env.OSS_SECRET,
+	key: process.env.OSS_KEY,
+	secret: process.env.OSS_SECRET,
 	bucket: process.env.OSS_BUCKET,
-	region: process.env.OSS_REGION || 'oss-cn-hangzhou',
 	generateFilename: nameFunctions.randomFilename,
 };
 
 // This constructor is usually called indirectly by the Storage class
 // in keystone.
 
-// S3-specific options should be specified in an `options.s3` field,
+// OSS-specific options should be specified in an `options.oss` field,
 // which can contain the following options: { key, secret, bucket, region,
 // headers, path }.
 
@@ -32,7 +30,7 @@ var DEFAULT_OPTIONS = {
 
 // See README.md for details and usage examples.
 
-function AliOssAdapter (options, schema) {
+function OSSAdapter (options, schema) {
 	this.options = assign({}, DEFAULT_OPTIONS, options.oss);
 
 	// Support `defaultHeaders` option alias for `headers`
@@ -42,28 +40,28 @@ function AliOssAdapter (options, schema) {
 	}
 
 	// Knox will check for the 'key', 'secret' and 'bucket' options.
-	this.client = oss(this.options);
+	this.client = knox.createClient(this.options);
 
 	// If path is specified it must be absolute.
 	if (options.path != null && !pathlib.isAbsolute(options.path)) {
-		throw Error('Configuration error: ali-oss path must be absolute');
+		throw Error("Configuration error: OSS path must be absolute");
 	}
 
 	// Ensure the generateFilename option takes a callback
 	this.options.generateFilename = ensureCallback(this.options.generateFilename);
 }
 
-AliOssAdapter.compatibilityLevel = 1;
+OSSAdapter.compatibilityLevel = 1;
 
 // All the extra schema fields supported by this adapter.
-AliOssAdapter.SCHEMA_TYPES = {
+OSSAdapter.SCHEMA_TYPES = {
 	filename: String,
 	bucket: String,
 	path: String,
 	etag: String,
 };
 
-AliOssAdapter.SCHEMA_FIELD_DEFAULTS = {
+OSSAdapter.SCHEMA_FIELD_DEFAULTS = {
 	filename: true,
 	bucket: false,
 	path: false,
@@ -71,30 +69,30 @@ AliOssAdapter.SCHEMA_FIELD_DEFAULTS = {
 };
 
 // Return a knox client configured to interact with the specified file.
-AliOssAdapter.prototype._ossForFile = function (file) {
+OSSAdapter.prototype._knoxForFile = function (file) {
 	// Clients are allowed to store the bucket name in the file structure. If they
 	// do it'll make it possible to have some files in one bucket and some files
 	// in another bucket. The knox client is configured per-bucket, so if you're
 	// using multiple buckets we'll need a different knox client for each file.
 	if (file.bucket && file.bucket !== this.options.bucket) {
-		var options = assign({}, this.options, { bucket: file.bucket });
-		return oss(options);
+		var ossoptions = assign({}, this.options, { bucket: file.bucket });
+		return knox.createClient(ossoptions);
 	} else {
 		return this.client;
 	}
 };
 
 // Get the full, absolute path name for the specified file.
-AliOssAdapter.prototype._resolveFilename = function (file) {
+OSSAdapter.prototype._resolveFilename = function (file) {
 	// Just like the bucket, the schema can store the path for files. If the path
 	// isn't stored we'll assume all the files are in the path specified in the
-	// s3.path option. If that doesn't exist we'll assume the file is in the root
+	// oss.path option. If that doesn't exist we'll assume the file is in the root
 	// of the bucket. (Whew!)
-	var path = file.path || this.options.path || '/';
-	return pathlib.posix.resolve(path, file.filename);
+	var path = this.options.path || "/";
+	return pathlib.join(path, file.filename);
 };
 
-AliOssAdapter.prototype.uploadFile = function (file, callback) {
+OSSAdapter.prototype.uploadFile = function (file, callback) {
 	var self = this;
 	this.options.generateFilename(file, 0, function (err, filename) {
 		if (err) return callback(err);
@@ -102,31 +100,48 @@ AliOssAdapter.prototype.uploadFile = function (file, callback) {
 		// The expanded path of the file on the filesystem.
 		var localpath = file.path;
 
-		// The destination path inside the S3 bucket.
+		// The destination path inside the OSS bucket.
 		file.path = self.options.path;
 		file.filename = filename;
 		var destpath = self._resolveFilename(file);
 
 		// Figure out headers
 		var headers = assign({}, self.options.headers, {
-			'Content-Length': file.size,
-			'Content-Type': file.mimetype,
+			"Content-Length": file.size,
+			"Content-Type": file.mimetype,
 		});
 
-		debug('Uploading file %s', filename);
-		co(function * () {
-			var { res } = yield self.client.put(destpath, localpath, { headers });
+		debug("Uploading file %s", filename);
+		self.client.putFile(localpath, destpath, headers, function (err, res) {
+			if (err) return callback(err);
 			if (res.statusCode !== 200) {
-				return callback(new Error('Aliyun returned status code: ' + res.statusCode));
+				return callback(
+					new Error("oss returned status code: " + res.statusCode)
+				);
 			}
+			res.resume(); // Discard (empty) body.
+
+			// We'll annotate the file with a bunch of extra properties. These won't
+			// be saved in the database unless the corresponding schema options are
+			// set.
 			file.filename = filename;
-			file.etag = res.headers.etag;
+			file.etag = res.headers.etag; // TODO: This etag is double-quoted (??why?)
+
+			// file.url is automatically populated by keystone's Storage class so we
+			// don't need to set it here.
+
+			// The path and bucket can be stored on a per-file basis if you want.
+			// The effect of this is that you can have some (eg, old) files in your
+			// collection stored in different bucket / different path inside your
+			// bucket. This means you can do slow data migrations. Note that if you
+			// *don't* store these values you can arguably migrate your data more
+			// easily - just move it all, reconfigure and restart your server.
 			file.path = self.options.path;
 			file.bucket = self.options.bucket;
 
-			debug('file upload successful');
+			debug("file upload successful");
 			callback(null, file);
-		}).catch(err => callback(err));
+		});
 	});
 };
 
@@ -135,32 +150,36 @@ AliOssAdapter.prototype.uploadFile = function (file, callback) {
 // - the bucket is public (best) or
 // - the file is set to a canned ACL (ie, headers:{ 'x-amz-acl': 'public-read' } )
 // - you pass credentials during your request for the file content itself
-AliOssAdapter.prototype.getFileURL = function (file) {
+OSSAdapter.prototype.getFileURL = function (file) {
 	// Consider providing an option to use insecure http. I can't think of any
 	// sensible use case for plain http though. https should be used everywhere.
-	return this._ossForFile(file).getObjectUrl(this._resolveFilename(file));
+	return this._knoxForFile(file).https(this._resolveFilename(file));
 };
 
-AliOssAdapter.prototype.removeFile = function (file, callback) {
+OSSAdapter.prototype.removeFile = function (file, callback) {
 	var fullpath = this._resolveFilename(file);
-	co(function * () {
-		var { res } = yield this._ossForFile(file).delete(fullpath);
+	this._knoxForFile(file).deleteFile(fullpath, function (err, res) {
+		if (err) return callback(err);
+		// Deletes return 204 according to the spec, but we'll allow 200 too:
+		// http://docs.aws.amazon.com/AmazonOSS/latest/API/RESTObjectDELETE.html
 		if (res.statusCode !== 200 && res.statusCode !== 204) {
-			return callback(Error('Aliyun returned status code ' + res.statusCode));
+			return callback(Error("oss returned status code " + res.statusCode));
 		}
+		res.resume(); // Discard the body
 		callback();
-	}).catch(err => callback(err));
+	});
 };
 
 // Check if a file with the specified filename already exists. Callback called
 // with the file headers if the file exists, null otherwise.
-AliOssAdapter.prototype.fileExists = function (filename, callback) {
+OSSAdapter.prototype.fileExists = function (filename, callback) {
 	var fullpath = this._resolveFilename({ filename: filename });
-	co(function * () {
-		var { res } = yield this.client.head(fullpath);
+	this.client.headFile(fullpath, function (err, res) {
+		if (err) return callback(err);
+
 		if (res.statusCode === 404) return callback(); // File does not exist
 		callback(null, res.headers);
-	}).catch(err => callback(err));
+	});
 };
 
-module.exports = AliOssAdapter;
+module.exports = OSSAdapter;
