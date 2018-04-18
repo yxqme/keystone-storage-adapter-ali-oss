@@ -8,7 +8,7 @@ Configure the storage adapter:
 var storage = new keystone.Storage({
   adapter: require("keystone-storage-adapter-ali-oss"),
   oss: {
-    endponit: "oss-cn-shanghai.aliyuncs.com", // required; defaults to process.env.OSS_ENDPONIT
+    endpoint: "oss-cn-shanghai.aliyuncs.com", // required; defaults to process.env.OSS_ENDPOINT
     accessKeyId: "key", // required; defaults to process.env.OSS_KEY
     accessKeySecret: "secret", // required; defaults to process.env.OSS_SECRET
     bucket: "mybucket", // required; defaults to process.env.OSS_BUCKET
