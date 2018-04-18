@@ -37,7 +37,7 @@ File.add({
 
 ### Options:
 
-* **endponit**: _(required)_ Ali-oss endponit to connect to.
+* **endpoint**: _(required)_ Ali-oss endpoint to connect to.
 
 * **accessKeyId**: _(required)_ Ali-oss access key. Configure your Aliyun credentials in the [IAM console](https://console.Aliyun.amazon.com/iam/home?region=ap-southeast-2#home).
 
