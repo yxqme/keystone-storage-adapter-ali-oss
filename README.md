@@ -8,13 +8,13 @@ Configure the storage adapter:
 var storage = new keystone.Storage({
   adapter: require("keystone-storage-adapter-ali-oss"),
   oss: {
-    endponit: "oss-cn-shanghai.aliyuncs.com", // required;
+    endponit: "oss-cn-shanghai.aliyuncs.com", // required; defaults to process.env.OSS_ENDPONIT
     accessKeyId: "key", // required; defaults to process.env.OSS_KEY
     accessKeySecret: "secret", // required; defaults to process.env.OSS_SECRET
     bucket: "mybucket", // required; defaults to process.env.OSS_BUCKET
-    path: "/profilepics",
+    path: "/upload",
     headers: {
-      "x-amz-acl": "public-read" // add default headers; see below for details
+      "x-public-read": "public-read" // add default headers; see below for details
     }
   },
   schema: {
@@ -37,7 +37,7 @@ File.add({
 
 ### Options:
 
-* **endponit**: Aliyun endponit to connect to.
+* **endponit**: _(required)_ Ali-oss endponit to connect to.
 
 * **accessKeyId**: _(required)_ Ali-oss access key. Configure your Aliyun credentials in the [IAM console](https://console.Aliyun.amazon.com/iam/home?region=ap-southeast-2#home).
 

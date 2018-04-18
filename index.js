@@ -13,6 +13,7 @@ var nameFunctions = require("keystone-storage-namefunctions");
 var pathlib = require("path");
 
 var DEFAULT_OPTIONS = {
+	endpoint: process.env.OSS_ENDPOINT,
 	key: process.env.OSS_KEY,
 	secret: process.env.OSS_SECRET,
 	bucket: process.env.OSS_BUCKET,
@@ -32,6 +33,8 @@ var DEFAULT_OPTIONS = {
 
 function OSSAdapter (options, schema) {
 	this.options = assign({}, DEFAULT_OPTIONS, options.oss);
+
+	console.log(this.options);
 
 	// Support `defaultHeaders` option alias for `headers`
 	// TODO: Remove me with the next major version bump
