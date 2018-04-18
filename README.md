@@ -37,15 +37,13 @@ File.add({
 
 ### Options:
 
-The adapter requires an additional `ali-oss` field added to the storage options. It accepts the following values:
+* **endponit**: Aliyun endponit to connect to.
 
 * **accessKeyId**: _(required)_ Ali-oss access key. Configure your Aliyun credentials in the [IAM console](https://console.Aliyun.amazon.com/iam/home?region=ap-southeast-2#home).
 
 * **accessKeySecret**: _(required)_ Ali-oss access secret.
 
 * **bucket**: _(required)_ ali-oss bucket to upload files to. Bucket must be created before it can be used.
-
-* **region**: Aliyun region to connect to. Aliyun buckets are global, but local regions will let you upload and download files faster. Defaults to `'oss-cn-hangzhou'`. Eg, `'oss-cn-hangzhou'`.
 
 * **path**: Storage path inside the bucket. By default uploaded files will be stored in the root of the bucket. You can override this by specifying a base path here. Base path must be absolute, for example '/images/profilepics'.
 
