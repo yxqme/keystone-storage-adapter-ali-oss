@@ -34,8 +34,6 @@ var DEFAULT_OPTIONS = {
 function OSSAdapter (options, schema) {
 	this.options = assign({}, DEFAULT_OPTIONS, options.oss);
 
-	console.log(this.options);
-
 	// Support `defaultHeaders` option alias for `headers`
 	// TODO: Remove me with the next major version bump
 	if (this.options.defaultHeaders) {
